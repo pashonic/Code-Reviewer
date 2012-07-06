@@ -50,7 +50,7 @@ actions = Actions ()
 for filePath in files2Process:
 
 	#
-	# Open file and dump contents to memory.
+	# Open file and dump contents into memory.
 	#
 	
 	print 'Processing File: ' + filePath
