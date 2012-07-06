@@ -2,6 +2,7 @@ import os
 import sys
 import fnmatch
 import inspect
+import re
 
 files2Process = []
 def AddFilesFromDirectory (directoryPath):
@@ -39,7 +40,7 @@ if (len (files2Process) == 0):
 
 class Actions:
 	def RemoveWhiteSpace (self, fileContents):
-		return re.replace (fileContents, 
+		return re.sub ('[ \t]+(?=((\r)|(\n)|(\r\n)|(\Z)))', '', fileContents)
 
 #
 # Process files.
@@ -47,8 +48,26 @@ class Actions:
 
 actions = Actions ()
 for filePath in files2Process:
+
+	#
+	# Open file and dump contents to memory.
+	#
+	
 	print 'Processing File: ' + filePath
 	fileContents = open (filePath).read ()
+	
+	#
+	# Execute actions against file contents.
+	#
+	
 	for name, method in inspect.getmembers (actions, callable):
 		print 'Running Action: ' + name
 		fileContents = method (fileContents)
+		
+	#
+	# Write new file contents back to file.
+	#	
+		
+	fileHandle = open (filePath, 'w')
+	fileHandle.write (fileContents)
+	fileHandle.close ()
