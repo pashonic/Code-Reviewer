@@ -77,7 +77,7 @@ for filePath in files2Process:
 	# Open file and dump contents into memory.
 	#
 
-	#print 'Processing File: ' + filePath
+	print 'Processing File: ' + filePath
 	fileContents = open (filePath, 'rb').read ()
 
 	#
