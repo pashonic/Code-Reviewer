@@ -37,33 +37,47 @@ if (len (files2Process) == 0):
 def GetFileLines (fileContents):
 	return re.split ('\r\n|\r|\n', fileContents)
 
+def RemoveQuotes (string):
+	string = re.sub ('\\\\[\'\"]', '', string)
+	string = re.sub ('[\"\'].*?[\"\']', '', string)
+	return string
+
 #
 # Defined actions.
 #
 
 class Actions:
+	
+	def ReplaceTabsWithSpaces (self, fileContents):
+		return re.sub ('\t', ' ' * 4, fileContents)
 
 	def RemoveWhiteSpace (self, fileContents):
 		return re.sub ('[ \t]+(?=\r|\n|(\r\n)|\Z)', '', fileContents)
 
-	def ParenthesisCheck (self, fileContents):
-		fileContentsCopy = str (fileContents)
-
+	def LineCheck (self, fileContents):
+		
 		#
-		# Remove quoted text.
+		# Declare line issues.
 		#
-
-		fileContentsCopy = re.sub ('\\\\[\'\"]', '', fileContents)
-		fileContentsCopy = re.sub ('[\"\'].*?[\"\']', '', fileContents)
-
+		
+		issues = [('No Parenthesis Space', '[^\s\(]\(', [RemoveQuotes]),
+		          ('Double Quote',         '[^\\\\]?\".*?[^\\\\]?\"', [])]
+		
 		#
-		# Find parenthesis issues.
+		# Find line issues.
 		#
-
-		for lineNumber, lineString in enumerate (GetFileLines (fileContentsCopy)):
-			match = re.search ('[^\s\(]\(', lineString)
-			if match:
-				print 'Warning [{0}, {1}]: ParenthesisCheck: {2}'.format (lineNumber + 1, lineString.find (match.group (0)) + 1, match.group (0))
+		
+		for lineNumber, lineString in enumerate (GetFileLines (fileContents)):
+			for name, reg, extraWorks in issues:
+				lineStringTemp = str (lineString)
+				for extraWork in extraWorks:
+					lineStringTemp = extraWork (lineStringTemp)
+				match = re.search (reg, lineStringTemp)
+				if match:
+					print 'Warning [{0}, {1}]: {2}: {3}'.format (lineNumber + 1,
+															     lineStringTemp.find (match.group (0)) + 1,
+															     name,
+															     match.group (0))
 		return fileContents
 
 #
