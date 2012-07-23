@@ -24,7 +24,7 @@ def AddFilesFromDirectory(directoryPath):
 
 if (len(sys.argv) < 2):
     print "No Files Processed"
-    sys.exit (0)
+    sys.exit(0)
 Fix = False
 for arg in sys.argv[1:]:
     if re.match('fix\=(true|1|false|0)', arg.lower()):
@@ -43,22 +43,38 @@ if (len(files2Process) == 0):
     AddFilesFromDirectory('.')
 
 #
-# Helper functions.
+# Helper objects.
 #
 
-PythonCode = ['[\=\+\-\*/\%\!\<\>\~\^\|\&]{1,2}', 'if', 'else', 'elif', 'return', 'def', 
+PythonCode = ['[\=\+\-\*/\%\!\<\>\~\^\|\&]{1,2}', 'if', 'else', 'elif', 'return', 'def',
               'print', 'for', 'while', 'not', 'in', 'is', 'is not', 'or', 'class']
 
 def GetFileLines(text):
     return re.split('\r\n|\r|\n', text)
 
+def RemoveComments(text):
+    commentList = []
+    for count, quote in enumerate(re.finditer('(?<!\\\\)\#[^\r\n]+', text, re.DOTALL)):
+        capture = quote.group(0)
+        replace = re.sub('.', chr(249), quote.group(0))
+        text = text[:quote.start(0)] + replace + text[quote.end(0):]
+        commentList.append(capture)
+    return (text, commentList)
+
+def RestoreComments(text, commentList):
+    for quote in commentList :
+        text = re.sub('{0}+'.format(chr(249)), quote.replace('\\', '\\\\'), text, 1)
+    return text
+
 def RemoveQuotes(text):
     quoteList = []
+    text, commentList = RemoveComments(text)
     for count, quote in enumerate(re.finditer('(?<!\\\\)(?P<quote>[\"\']).*?(?<!\\\\)(?P=quote)', text)):
         capture = quote.group(0)
         replace = re.sub('.', chr(250), quote.group(0))
         text = text[:quote.start(0)] + replace + text[quote.end(0):]
         quoteList.append(capture)
+    text = RestoreComments(text, commentList)
     return (text, quoteList)
 
 def RestoreQuotes(text, quoteList):
@@ -71,6 +87,7 @@ def RestoreQuotes(text, quoteList):
 #
 
 class Actions:
+
     def InnerSpace(self, text):
         text, savedQuotes = RemoveQuotes(text)
         text = re.sub('(?<=\S)[ \t]+(?=\S)', ' ', text)
