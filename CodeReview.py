@@ -22,6 +22,9 @@ def AddFilesFromDirectory(directoryPath):
 # Process arguments.
 #
 
+if (len(sys.argv) < 2):
+    print "No Files Processed"
+    sys.exit (0)
 Fix = False
 for arg in sys.argv[1:]:
     if re.match('fix\=(true|1|false|0)', arg.lower()):
@@ -43,8 +46,8 @@ if (len(files2Process) == 0):
 # Helper functions.
 #
 
-PythonCode = ['if', '\={1,2}', 'else', 'elif', 'return', 'def', 'print', 'for',
-              'while']
+PythonCode = ['[\=\+\-\*/\%\!\<\>\~\^\|\&]{1,2}', 'if', 'else', 'elif', 'return', 'def', 
+              'print', 'for', 'while', 'not', 'in', 'is', 'is not', 'or', 'class']
 
 def GetFileLines(text):
     return re.split('\r\n|\r|\n', text)
