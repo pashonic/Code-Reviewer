@@ -26,14 +26,25 @@ if (len(sys.argv) < 2):
     print "No Files Processed"
     sys.exit(0)
 Fix = False
+LineCheck = False
 for arg in sys.argv[1:]:
-    if re.match('fix\=(true|1|false|0)', arg.lower()):
-        Fix = bool(re.search('true|1', arg.lower()))
+    if re.match('fix\=(true|1|)', arg.lower()):
+        Fix = True
+        continue
+    if re.match('linecheck\=(true|1)', arg.lower()):
+        LineCheck = True
         continue
     if os.path.isdir(arg):
         AddFilesFromDirectory(directoryPath)
     else:
         files2Process.append(arg)
+
+#
+# Don't fix anything in LineCheck mode.
+#
+
+if LineCheck:
+    Fix = False
 
 #
 # Add working directory by default if no arguments were given.
@@ -88,13 +99,42 @@ def RestoreQuotes(text, quoteList):
 
 class Actions:
 
+    #
+    # Fix code that has more than one space between code items.
+    # Example: fileContentsTemp   =    method(fileContents)
+    # Should Be: fileContentsTemp = method(fileContents)
+    #
+
     def InnerSpace(self, text):
         text, savedQuotes = RemoveQuotes(text)
+        text, savedComments = RemoveComments(text)
         text = re.sub('(?<=\S)[ \t]+(?=\S)', ' ', text)
+        text = RestoreComments(text, savedComments)
         return RestoreQuotes(text, savedQuotes)
 
-    def Parenthesis(self, text):
+    #
+    # Fix inner parenthesis issues.
+    # Example: function(   ok    )
+    # Should Be: function(ok)
+    #
+
+    def InnerParenthesis(self, text):
         text, savedQuotes = RemoveQuotes(text)
+        text, savedComments = RemoveComments(text)
+        text = re.sub('(?<=[\(\[\{])[ \t]+', '', text)
+        text = re.sub('[ \t]+(?=[\)\]\}])', '', text)
+        text = RestoreComments(text, savedComments)
+        return RestoreQuotes(text, savedQuotes)
+
+    #
+    # Fix outter parenthesis issues.
+    # Example: function (ok)
+    # Should Be: function(ok)
+    #
+
+    def OuterParenthesis(self, text):
+        text, savedQuotes = RemoveQuotes(text)
+        text, savedComments = RemoveComments(text)
         textCopy = str(text)
         while True:
             badCandidate = re.search('\w+[ \t]+\(', textCopy)
@@ -121,26 +161,37 @@ class Actions:
             candidateText = re.sub('[ \t]+\(', '(', badCandidate.group(0))
             textCopy = textCopy[:badCandidate.start(0)] + candidateText + textCopy[badCandidate.end(0):]
             text = text[:badCandidate.start(0)] + candidateText + text[badCandidate.end(0):]
+        text = RestoreComments(text, savedComments)
         return RestoreQuotes(text, savedQuotes)
+
+    #
+    # Replace Tabs with spaces.
+    #
 
     def Tabs(self, text):
         return re.sub('\t', ' ' * 4, text)
+
+    #
+    # Remove white space.
+    #
 
     def WhiteSpace(self, text):
         return re.sub('[ \t]+(?=\r|\n|(\r\n)|\Z)', '', text)
 
 #
-# Process files.
+# Modes.
 #
 
-actions = Actions()
-for filePath in files2Process:
+def LineCheckMode(filePath):
+    for lineNum, lineText in enumerate(open(filePath, 'rb').readlines()):
+        originalLineText = str(lineText)
+        for name, method in inspect.getmembers(actions, callable):
+            lineText = method(lineText)
+            if not (originalLineText == lineText):
+                print '{0}:{1}'.format(lineNum + 1, name)
+            lineText = str(originalLineText)
 
-    #
-    # Open file and dump contents into memory.
-    #
-
-    print 'Processing File: ' + filePath
+def FindFixMode(filePath):
     fileContents = open(filePath, 'rb').read()
 
     #
@@ -172,3 +223,20 @@ for filePath in files2Process:
         fileHandle = open(filePath, 'wb')
         fileHandle.write(fileContents)
         fileHandle.close()
+
+#
+# Process files.
+#
+
+actions = Actions()
+for filePath in files2Process:
+
+    #
+    # Open file and dump contents into memory.
+    #
+
+    print '***Processing File: ' + filePath
+    if (LineCheck):
+        LineCheckMode(filePath)
+    else:
+        FindFixMode(filePath)
