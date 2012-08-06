@@ -1,3 +1,44 @@
+# PythonCodeReview  Copyright (C) 2012  Aaron Greene
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+def PrintHelp():
+    print '''
+    How to use:
+    python CodeReview.py [file]* [Directory]* [fix =(1| true |0| false)]?
+                         [linecheck =(1| true |0| false)]?
+
+    No Arguments Given = fix =0 and linecheck =0 and script will
+                         scan all python files in working directory.
+
+    Argument Details:
+    file - File to scan
+                Note: Multiple files can be given.
+
+    directory - Directory to recursively search for files to scan
+                Note: Multiple directories can be given
+
+    fix - Option to fix found issues
+                Default = Disabled
+
+    linecheck - Enabled line check mode
+                Default = Disabled.
+                Note: linecheck =1 will disable fix.
+
+    Example call:
+    python CodeReview.py file2fix.py fix =1'''
+
 import os
 import sys
 import fnmatch
@@ -5,7 +46,14 @@ import inspect
 import re
 import sys
 
-files2Process = []
+#
+# Helper objects.
+#
+
+PythonCodeOperators = '[\=\+\-\*/\%\!\<\>\~\^\|\&]+'
+PythonCodeWords = '(if)|(else)|(elif)|(return)|(def)|(print)|(for)|(while)|(not)|(in)|(is)|(is not)|(or)|(class)|(import)'
+PythonCodeAll = '(({0})|{1})'.format(PythonCodeOperators, PythonCodeWords)
+
 def AddFilesFromDirectory(directoryPath):
     for root, dirnames, filenames in os.walk(directoryPath):
         for filename in fnmatch.filter(filenames, '*.py'):
@@ -16,51 +64,7 @@ def AddFilesFromDirectory(directoryPath):
 
             if sys.argv[1] in filename:
                 continue
-            files2Process.append(os.path.join(root, filename))
-
-#
-# Process arguments.
-#
-
-if (len(sys.argv) < 2):
-    print "No Files Processed"
-    sys.exit(0)
-Fix = False
-LineCheck = False
-for arg in sys.argv[1:]:
-    if re.match('fix\=(true|1|)', arg.lower()):
-        Fix = True
-        continue
-    if re.match('linecheck\=(true|1)', arg.lower()):
-        LineCheck = True
-        continue
-    if os.path.isdir(arg):
-        AddFilesFromDirectory(directoryPath)
-    else:
-        files2Process.append(arg)
-
-#
-# Don't fix anything in LineCheck mode.
-#
-
-if LineCheck:
-    Fix = False
-
-#
-# Add working directory by default if no arguments were given.
-#
-
-if (len(files2Process) == 0):
-    AddFilesFromDirectory('.')
-
-#
-# Helper objects.
-#
-
-PythonCodeOperators = '[\=\+\-\*/\%\!\<\>\~\^\|\&]+'
-PythonCodeWords = '(if)|(else)|(elif)|(return)|(def)|(print)|(for)|(while)|(not)|(in)|(is)|(is not)|(or)|(class)|(import)'
-PythonCodeAll = '(({0})|{1})'.format(PythonCodeOperators, PythonCodeWords)
-
+            Files2Process.append(os.path.join(root, filename))
 
 def GetFileLines(text):
     return re.split('\r\n|\r|\n', text)
@@ -96,7 +100,7 @@ def RestoreQuotes(text, quoteList):
     return text
 
 #
-# Defined actions.
+# Defined action class.
 #
 
 class Actions:
@@ -143,7 +147,7 @@ class Actions:
     # Should Be: function(ok)
     #
 
-    def Inner_Parenthesis(self, text):
+    def Inner_Parenthesis_Space(self, text):
         text, savedQuotes = RemoveQuotes(text)
         text, savedComments = RemoveComments(text)
         text = re.sub('(?<=[\(\[\{])[ \t]+', '', text)
@@ -157,7 +161,7 @@ class Actions:
     # Should Be: function(ok)
     #
 
-    def Outer_Parenthesis(self, text):
+    def Outer_Parenthesis_Space(self, text):
         text, savedQuotes = RemoveQuotes(text)
         text, savedComments = RemoveComments(text)
         textCopy = str(text)
@@ -245,11 +249,49 @@ def FindFixMode(filePath):
         fileHandle.close()
 
 #
+# Process arguments.
+#
+
+Files2Process = []
+if (len(sys.argv) < 2):
+    print "No Files Processed"
+    sys.exit(0)
+Fix = False
+LineCheck = False
+for arg in sys.argv[1:]:
+    if re.match('help', arg.lower()):
+        PrintHelp()
+        sys.exit(0)
+    if re.match('fix\=(true|1|)', arg.lower()):
+        Fix = True
+        continue
+    if re.match('linecheck\=(true|1)', arg.lower()):
+        LineCheck = True
+        continue
+    if os.path.isdir(arg):
+        AddFilesFromDirectory(directoryPath)
+    else:
+        Files2Process.append(arg)
+
+#
+# Don't fix anything in LineCheck mode.
+#
+
+if LineCheck:
+    Fix = False
+
+#
+# Add working directory by default if no arguments were given.
+#
+
+if (len(Files2Process) == 0):
+    AddFilesFromDirectory('.')
+#
 # Process files.
 #
 
 actions = Actions()
-for filePath in files2Process:
+for filePath in Files2Process:
     print '>>>Processing File: ' + filePath
     if (LineCheck):
         LineCheckMode(filePath)
