@@ -57,8 +57,10 @@ if (len(files2Process) == 0):
 # Helper objects.
 #
 
-PythonCode = ['[\=\+\-\*/\%\!\<\>\~\^\|\&]{1,2}', 'if', 'else', 'elif', 'return', 'def',
-              'print', 'for', 'while', 'not', 'in', 'is', 'is not', 'or', 'class']
+PythonCodeOperators = '[\=\+\-\*/\%\!\<\>\~\^\|\&]+'
+PythonCodeWords = '(if)|(else)|(elif)|(return)|(def)|(print)|(for)|(while)|(not)|(in)|(is)|(is not)|(or)|(class)|(import)'
+PythonCodeAll = '(({0})|{1})'.format(PythonCodeOperators, PythonCodeWords)
+
 
 def GetFileLines(text):
     return re.split('\r\n|\r|\n', text)
@@ -79,13 +81,13 @@ def RestoreComments(text, commentList):
 
 def RemoveQuotes(text):
     quoteList = []
-    text, commentList = RemoveComments(text)
+    text, savedComments = RemoveComments(text)
     for count, quote in enumerate(re.finditer('(?<!\\\\)(?P<quote>[\"\']).*?(?<!\\\\)(?P=quote)', text)):
         capture = quote.group(0)
         replace = re.sub('.', chr(250), quote.group(0))
         text = text[:quote.start(0)] + replace + text[quote.end(0):]
         quoteList.append(capture)
-    text = RestoreComments(text, commentList)
+    text = RestoreComments(text, savedComments)
     return (text, quoteList)
 
 def RestoreQuotes(text, quoteList):
@@ -100,12 +102,35 @@ def RestoreQuotes(text, quoteList):
 class Actions:
 
     #
+    # Fix instances where there is no space between operators and letters.
+    # Example: fileContentsTemp=method(fileContents)
+    # Should Be: fileContentsTemp = method(fileContents)
+    # Note: Does not catch object names that end with number.
+    #
+
+    def Operator_Space(self, text):
+        text, savedQuotes = RemoveQuotes(text)
+        text, savedComments = RemoveComments(text)
+        while True:
+            badCandidate = re.search('([A-Za-z]{0})|({0}[A-Za-z])'.format(PythonCodeOperators), text)
+            if not badCandidate:
+                break
+            fixedCandidateText = badCandidate.group(0)
+            if re.search('\A\w', fixedCandidateText):
+                fixedCandidateText = fixedCandidateText[0] + ' ' + fixedCandidateText[1:]
+            else:
+                fixedCandidateText = fixedCandidateText[:-1] + ' ' + fixedCandidateText[-1]
+            text = text[:badCandidate.start(0)] + fixedCandidateText + text[badCandidate.end(0):]
+        text = RestoreComments(text, savedComments)
+        return RestoreQuotes(text, savedQuotes)
+
+    #
     # Fix code that has more than one space between code items.
     # Example: fileContentsTemp   =    method(fileContents)
     # Should Be: fileContentsTemp = method(fileContents)
     #
 
-    def InnerSpace(self, text):
+    def Inner_Space(self, text):
         text, savedQuotes = RemoveQuotes(text)
         text, savedComments = RemoveComments(text)
         text = re.sub('(?<=\S)[ \t]+(?=\S)', ' ', text)
@@ -118,7 +143,7 @@ class Actions:
     # Should Be: function(ok)
     #
 
-    def InnerParenthesis(self, text):
+    def Inner_Parenthesis(self, text):
         text, savedQuotes = RemoveQuotes(text)
         text, savedComments = RemoveComments(text)
         text = re.sub('(?<=[\(\[\{])[ \t]+', '', text)
@@ -132,7 +157,7 @@ class Actions:
     # Should Be: function(ok)
     #
 
-    def OuterParenthesis(self, text):
+    def Outer_Parenthesis(self, text):
         text, savedQuotes = RemoveQuotes(text)
         text, savedComments = RemoveComments(text)
         textCopy = str(text)
@@ -145,13 +170,8 @@ class Actions:
             # Check if candidate is an exception.
             #
 
-            isExcep = False
-            for exception in PythonCode:
-                if re.match('\A{0}[ \t]+\('.format(exception), badCandidate.group(0)):
-                    textCopy = textCopy[:badCandidate.start(0)] + re.sub('.', chr(250), badCandidate.group(0)) + textCopy[badCandidate.end(0):]
-                    isExcep = True
-                    break
-            if isExcep:
+            if re.match('\A{0}[ \t]+\('.format(PythonCodeAll), badCandidate.group(0)):
+                textCopy = textCopy[:badCandidate.start(0)] + re.sub('.', chr(250), badCandidate.group(0)) + textCopy[badCandidate.end(0):]
                 continue
 
             #
@@ -175,11 +195,11 @@ class Actions:
     # Remove white space.
     #
 
-    def WhiteSpace(self, text):
+    def White_Space(self, text):
         return re.sub('[ \t]+(?=\r|\n|(\r\n)|\Z)', '', text)
 
 #
-# Modes.
+# Script execution modes.
 #
 
 def LineCheckMode(filePath):
@@ -230,12 +250,7 @@ def FindFixMode(filePath):
 
 actions = Actions()
 for filePath in files2Process:
-
-    #
-    # Open file and dump contents into memory.
-    #
-
-    print '***Processing File: ' + filePath
+    print '>>>Processing File: ' + filePath
     if (LineCheck):
         LineCheckMode(filePath)
     else:
