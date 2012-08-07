@@ -23,13 +23,13 @@ def PrintHelp():
                          scan all python files in working directory.
 
     Argument Details:
-    file - File to scan
+    file -      File to scan
                 Note: Multiple files can be given.
 
     directory - Directory to recursively search for files to scan
                 Note: Multiple directories can be given
 
-    fix - Option to fix found issues
+    fix -       Option to fix found issues
                 Default = Disabled
 
     linecheck - Enabled line check mode
@@ -62,7 +62,7 @@ def AddFilesFromDirectory(directoryPath):
             # Ignore this script file.
             #
 
-            if sys.argv[1] in filename:
+            if sys.argv[0] in filename:
                 continue
             Files2Process.append(os.path.join(root, filename))
 
@@ -253,9 +253,6 @@ def FindFixMode(filePath):
 #
 
 Files2Process = []
-if (len(sys.argv) < 2):
-    print "No Files Processed"
-    sys.exit(0)
 Fix = False
 LineCheck = False
 for arg in sys.argv[1:]:
@@ -284,12 +281,16 @@ if LineCheck:
 # Add working directory by default if no arguments were given.
 #
 
-if (len(Files2Process) == 0):
+if (len(Files2Process) < 1):
     AddFilesFromDirectory('.')
+
 #
 # Process files.
 #
 
+if (len(Files2Process) < 1):
+    print "No Files Processed"
+    sys.exit(0)
 actions = Actions()
 for filePath in Files2Process:
     print '>>>Processing File: ' + filePath
