@@ -3,7 +3,7 @@ Python Code Reviewer
 
 Description
 -------
-<p>I wrote a review script for python code for my own use but maybe you can use it. It detects issues specific to my own coding standard. It can both find and fix issues.  I use it for work and personal projects</p>
+<p>I wrote a review script for python code for my own use but maybe you can use it. It detects issues specific to my own coding standard. It can both find and fix issues.  I use it for work and personal projects.</p>
 
 Restrictions
 -------
